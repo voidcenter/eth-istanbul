@@ -4,18 +4,23 @@
 @time: 2023/11/14
 """
 import json
+import os
 from base64 import b64encode
 
 import requests
 from loguru import logger
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 class IPFSClient:
     headers: dict
 
     def __init__(self):
-        self.key = "2HxMTX76fFTZUk8pUNL14Y2JaWy"
-        self.secret = "66fb6b9c58e5ec67a925bcd6a0bb4649"
+        self.key = os.getenv("IPFS_KEY")
+        self.secret = os.getenv("IPFS_SECRET")
         self.endpoint = "https://ipfs.infura.io:5001"
         self.init_header()
         # https://ipfs.io/ipfs/QmdnZPFMKSLNuLeYkPFtDp2veLNHwpr12xV3i66nTmKnme
@@ -38,12 +43,19 @@ class IPFSClient:
         logger.info(f"Create ipfs with request_id: {request_id}, hash: {_hash}")
         return _hash
 
-    def read_data(self):
-        pass
+    def read_data(self, ipfs_key):
+        params = (
+            ('arg', ipfs_key),
+        )
+
+        response = requests.post(self.endpoint + '/api/v0/block/get', headers=self.headers, params=params)
+
+        print(response.text)
 
 
 if __name__ == '__main__':
     ic = IPFSClient()
-    print(ic.save_data("test_id", {
-        "test": "ok"
-    }))
+    ic.read_data("QmbYATT9cfirSRiHr6xFgVyXm9F8sPQZHPe8b3XpySKg3j")
+    # print(ic.save_data("test_id", {
+    #     "test": "ok"
+    # }))
