@@ -1,60 +1,37 @@
+DEMO_USER=0x156ec9aac062e48aedaec5b4e4be33a7f354286b
+DEMO_ORACLE=0xfb7581e2bcff4c5c3a428123f36c73edc8fc4e4b
 
------------ TEST LOCALLY ON GOERLI FORK SETUP
-anvil --fork-url https://eth-goerli.g.alchemy.com/v2/Dy3YnnKVgx3i6DM6WGPlY8kz5W8QpKb0
+dry0:
+	@cast call ${DEMO_USER} --private-key ${DEPLOYER_PRIVATE_KEY} \
+		--rpc-url https://eth-goerli.g.alchemy.com/v2/IbSfio5zI-0O2qB-nRCz0AvTN9xwndm2 \
+		"requestReputationScore(address,bool,uint256)()" 0xeB1c22baACAFac7836f20f684C946228401FF01C true 0
 
-export MNEMONIC="test test test test test test test test test test test junk"
+run0:
+	@cast send ${DEMO_USER} --private-key ${DEPLOYER_PRIVATE_KEY} \
+		--rpc-url https://eth-goerli.g.alchemy.com/v2/IbSfio5zI-0O2qB-nRCz0AvTN9xwndm2 \
+		"requestReputationScore(address,bool,uint256)()" 0xeB1c22baACAFac7836f20f684C946228401FF01C true 0
 
-export FINDER_ADDRESS=0xE60dBa66B85E10E7Fd18a67a6859E241A243950e
+# Send reputation
+dry1:
+	@cast call ${DEMO_ORACLE} --private-key ${DEPLOYER_PRIVATE_KEY} \
+		--rpc-url https://eth-goerli.g.alchemy.com/v2/IbSfio5zI-0O2qB-nRCz0AvTN9xwndm2 \
+		"sendReputationScore((address,uint256,uint256,bool,bool,(bool,uint256,uint256,uint256,bytes),(uint256,uint256,uint256,uint256,uint256,uint256),bytes32,bytes),bytes)(bytes32)" \
+		"(0xeB1c22baACAFac7836f20f684C946228401FF01C,0,1,true,false,(true,1,2,3,0x12345678),(1,2,3,4,5,6),0xd2618b1146e106e16185f60d85c4af8e5380d6f22f79569db357fe281bb04bb8,0x12345678)" 0x123456
 
-export OOV3_ADDRESS=$(cast call $FINDER_ADDRESS "getImplementationAddress(bytes32)(address)" \
-	$(cast --format-bytes32-string "OptimisticOracleV3"))
+run1:
+	@cast send ${DEMO_ORACLE} --private-key ${DEPLOYER_PRIVATE_KEY} \
+		--rpc-url https://eth-goerli.g.alchemy.com/v2/IbSfio5zI-0O2qB-nRCz0AvTN9xwndm2 \
+		"sendReputationScore((address,uint256,uint256,bool,bool,(bool,uint256,uint256,uint256,bytes),(uint256,uint256,uint256,uint256,uint256,uint256),bytes32,bytes),bytes)(bytes32)" \
+		"(0xeB1c22baACAFac7836f20f684C946228401FF01C,0,1,true,false,(true,1,2,3,0x12345678),(1,2,3,4,5,6),0xd2618b1146e106e16185f60d85c4af8e5380d6f22f79569db357fe281bb04bb8,0x12345678)" 0x123456
+## Axiom
 
---------------- DEPLOY CONTRACT
+## call UMA
+dry2:
+	@cast call ${DEMO_ORACLE} --private-key ${DEPLOYER_PRIVATE_KEY} \
+		--rpc-url https://eth-goerli.g.alchemy.com/v2/IbSfio5zI-0O2qB-nRCz0AvTN9xwndm2 \
+		"settelUMAAssertion(bytes32)()" 0xe3aefd5329040ef46ae888bbceccba8cfba5c07c0cf6bfa0d39738b9f38aa284 # change THIS assetionID
 
-export REP_ORACLE=$(forge create --json src/RepOracle.sol:RepOracleContract \
-	--mnemonic "$MNEMONIC" \
-	--constructor-args $OOV3_ADDRESS \
-	| jq -r .deployedTo)
-
-------------- VERIFYING CONTRACT
-forge verify-contract \
-	--chain-id $(cast chain-id) \
-	--constructor-args $(cast abi-encode "constructor(address)" \
-	$OOV3_ADDRESS) $REP_ORACLE RepOracle
-
-
------ TESTING DEPLOYED CONTRACT 
-export ASSERTER_ID=1
-
-export DATA=$(cast --format-bytes32-string $(echo '69+420' | bc))
-echo "DATA=$(echo $DATA)"
-
-
-export ASSERTION_TX=$(cast send --json \
-	--mnemonic "$MNEMONIC" --mnemonic-index $ASSERTER_ID \
-	$DATA_ASSERTER \
-	"sendReputationScore(bytes32,uint256, bytes)" $DATA_ID $DATA $DATA_ASSERTER \
-	| jq -r .transactionHash)
-
-
-export ASSERTION_TX=$(cast send --json \
-	--mnemonic "$MNEMONIC" --mnemonic-index $ASSERTER_ID \
-	$DATA_ASSERTER \
-	"sendReputationScore(bytes32,uint256, bytes)" $DATA_ID $DATA $DATA_ASSERTER \
-	| jq -r .transactionHash)
-
--------------- DEPLOY TO GOERLI
-forge create --rpc-url https://eth-goerli.g.alchemy.com/v2/Dy3YnnKVgx3i6DM6WGPlY8kz5W8QpKb0 \
-    --constructor-args $OOV3_ADDRESS \
-    --private-key $DEPLOYER_PRIVATE_KEY \
-    --etherscan-api-key $ETHERSCAN_API_KEY \
-    --verify \
-    src/RepOracle.sol:RepOracleContract
-
--------------- DEPLOY DEMO USER
-forge create --rpc-url https://eth-goerli.g.alchemy.com/v2/Dy3YnnKVgx3i6DM6WGPlY8kz5W8QpKb0 \
-    --constructor-args 0xA7983eE84414D84027AB36b4c3113caaA4Ad505c \
-    --private-key $DEPLOYER_PRIVATE_KEY \
-    --etherscan-api-key $ETHERSCAN_API_KEY \
-    --verify \
-    src/DemoOracleUser.sol:DemoRepOracleUser
+run2:
+	@cast send ${DEMO_ORACLE} --private-key ${DEPLOYER_PRIVATE_KEY} \
+		--rpc-url https://eth-goerli.g.alchemy.com/v2/IbSfio5zI-0O2qB-nRCz0AvTN9xwndm2 \
+		"settelUMAAssertion(bytes32)()" 0xe3aefd5329040ef46ae888bbceccba8cfba5c07c0cf6bfa0d39738b9f38aa284 # change THIS assetionID

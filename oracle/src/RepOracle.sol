@@ -8,32 +8,46 @@ import "./interface/IRepOracle.sol";
 import "./interface/IUMAOracleV3.sol";
 
 contract RepOracleContract is IRepOracleContract, Ownable {
-    mapping(bytes32 => address) public requests; // request id to user address
+    // user call back
+    mapping(bytes32 => address) public call_back_address; // request id to user address
+    mapping(bytes32 => address) public requesting_address;
+    // UMA 
     mapping(bytes32 => bytes32) public assertion_ids; //  assertion_ids to request_id
+    // Evidence & score
     mapping(bytes32 => bytes) public evidence; // request id to evidence (IPFS hash), remove in production
-
     mapping(address => IRepOracleContract.RepScore) public repScore;
+    
+    // axiom proof
+    mapping(bytes32 => uint256) public requestId_to_axiom_query_id;
+    mapping(uint256 => bytes32) public axiom_query_id_to_requestId;
+
 
     uint256 public requestNonce;
     IUMAOracleV3 oov3;
-    uint64 public constant assertionLiveness = 120;
+    uint64 public constant assertionLiveness = 10;
     bytes32 public immutable defaultIdentifier;
     IERC20 public immutable defaultCurrency;
+    address public immutable axiomV2Query;
 
-    constructor(address umaOracle) Ownable(msg.sender) {
+    constructor(address umaOracle, address _axiomV2Query) Ownable(msg.sender) {
         // Create an Optimistic Oracle V3 instance at the deployed address on Görli.
         oov3 = IUMAOracleV3(umaOracle);
         defaultIdentifier = oov3.defaultIdentifier();
         defaultCurrency = IERC20(oov3.defaultCurrency());
         requestNonce = 0;
+        axiomV2Query = _axiomV2Query;
     }
 
-    function requestBatchReputationScore(address[] calldata _addresses) external returns (bytes32) {
-        bytes32 requestId = keccak256(abi.encodePacked(msg.sender, _addresses, block.timestamp, requestNonce));
-        requests[requestId] = msg.sender;
-        emit BatchRequestReceived(requestId, msg.sender, _addresses, requestNonce);
-        requestNonce += 1;
-        return requestId;
+    // function requestBatchReputationScore(address[] calldata _addresses) external returns (bytes32) {
+    //     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, _addresses, block.timestamp, requestNonce));
+    //     call_back_address[requestId] = msg.sender;
+    //     emit BatchRequestReceived(requestId, msg.sender, _addresses, requestNonce);
+    //     requestNonce += 1;
+    //     return requestId;
+    // }
+
+    function setAssertionLiveness(uint64 _liveness) public onlyOwner() {
+        assertionLiveness = _liveness;
     }
 
     function requestReputationScore(address _address, bool forceRefresh, uint256 expirationBlock)
@@ -45,7 +59,8 @@ contract RepOracleContract is IRepOracleContract, Ownable {
         // First time calculating the score
         // The score expired
         bytes32 requestId = keccak256(abi.encodePacked(msg.sender, _address, block.timestamp, requestNonce));
-        requests[requestId] = msg.sender;
+        requesting_address[requestId] = _address;
+        call_back_address[requestId] = msg.sender;
 
         if (forceRefresh || repScore[_address].blocknumber == 0 || repScore[_address].blocknumber <= expirationBlock) {
             emit RequestReceived(requestId, msg.sender, _address, requestNonce);
@@ -64,7 +79,7 @@ contract RepOracleContract is IRepOracleContract, Ownable {
         onlyOwner
         returns (bytes32 assertionId)
     {
-        address userContractAddress = requests[score.requestId];
+        address userContractAddress = call_back_address[score.requestId];
         require(userContractAddress != address(0), "Request ID not found");
 
         uint256 bond = oov3.getMinimumBond(address(defaultCurrency));
@@ -87,7 +102,7 @@ contract RepOracleContract is IRepOracleContract, Ownable {
         IRepOracleUser(userContractAddress).reputationCallback(score);
 
         evidence[score.requestId] = _evidence;
-        repScore[userContractAddress] = score;
+        repScore[score.requestingAddress] = score;
         emit ReputationScoreSent(score.requestId, score.score, assertionId);
     }
 
@@ -97,23 +112,56 @@ contract RepOracleContract is IRepOracleContract, Ownable {
     function assertionResolvedCallback(bytes32 assertionId, bool assertedTruthfully) public {
         require(msg.sender == address(oov3));
         bytes32 _requestId = assertion_ids[assertionId];
-        address userContractAddress = requests[_requestId];
+        address userContractAddress = call_back_address[_requestId];
         require(userContractAddress != address(0), "Request ID not found");
 
         // If the assertion was true, then the data assertion is resolved.
-        if (assertedTruthfully) {
+        // require Axiom proof to also pass
+        bool axiomPassed = requestId_to_axiom_query_id[_requestId] != 0;
+        if (assertedTruthfully && axiomPassed) {
             IRepOracleUser(userContractAddress).commit(_requestId);
+
             emit UMAAssertionResolved(assertionId, _requestId, true);
             // Else delete the data assertion if it was false to save gas.
             // Enter reimbursement mechanism for users to get money.
         } else {
             IRepOracleUser(userContractAddress).rollback(_requestId);
+            // the score is invalid, remove
+            delete repScore[requesting_address[_requestId]];
             emit UMAAssertionResolved(assertionId, _requestId, false);
         }
 
         // Gas savings
         // delete assertion_ids[assertionId];
-        // delete requests[_requestId];
+        // delete call_back_address[_requestId];
+    }
+
+    event AxiomVerificationSuccess(bytes32 indexed requestId, uint256 queryId);
+
+    function axiomV2Callback(
+        uint64 sourceChainId,
+        address caller,
+        bytes32 querySchema,
+        uint256 queryId,
+        bytes32[] calldata axiomResults,
+        bytes calldata extraData // <-- we can requestId from this
+    ) external { 
+        // validate msg.sender against the AxiomV2Query address
+        require(msg.sender == axiomV2Query || msg.sender == owner());
+        require(caller == owner());     
+        bytes32 requestId = bytes32(extraData);
+        address userContractAddress = call_back_address[requestId];
+        // validate the sourceChainId, caller, querySchema, and queryId
+        
+        IRepOracleContract.RepScore memory _unverifiedScore = repScore[requesting_address[requestId]];
+
+        // verify axiom result
+        emit AxiomVerificationSuccess(requestId, queryId);
+
+        // perform your application logic
+        requestId_to_axiom_query_id[requestId]= queryId;
+        axiom_query_id_to_requestId[queryId] = requestId;
+
     }
 
     // Call this once liveness period is over

@@ -14,6 +14,11 @@ contract DemoRepOracleUser is Ownable, RepOracleUser {
     event ReputationScoreRolledback(bytes32 indexed requestId);
 
     constructor(address _oracleAddress) RepOracleUser(_oracleAddress) Ownable(msg.sender) {}
+    
+    function setOracle(address _oracleAddress) public onlyOwner() {
+        reputationOracle = _oracleAddress;
+        oracle = IRepOracleContract(reputationOracle);
+    }
 
     function requestReputationScore(address _address, bool _forceRefresh, uint256 _expirationBlock)
         external
