@@ -1,66 +1,36 @@
 import Head from 'next/head';
 import styles from './layout.module.css';
 
-export const siteTitle = 'Omnitrace';
-
-
 export default function Layout(
-  { children }: any
+  { children, input, hoho }: any
   ) {
 
     return (
       <div className={styles.container}>
-        <Head>
-          <link rel="icon" href="/magnifier.png" />
-          <meta
-            name="description"
-            content="Omnitrace"
-          />
-          <meta name="og:title" content={siteTitle} />
-        </Head>
 
         <header className={styles.header}>
+          <div className={styles.connect_botton}>
             <w3m-button />
-          {/* <div className={GRAPHVIEW_TOP_BOX_STYLE}> 
-            <div className={styles.inputBoxDiv}> {input} </div>
           </div>
-          <div className={TABLEVIEW_TAB_BUTTON_GROUP_STYLE}> {topRightUI} </div>
-          <div className={styles.bottomRightUI}> {bottomRightUI} </div>
-          <div className={styles.bottomLeftUI}> {bottomLeftUI} </div> */}
+          <div className={styles.inputBoxDiv}> {input} </div>
+
+          <img style={{ 
+                  position: "absolute", 
+                  left: '7px',
+                  top: `${hoho + 17}px`,
+                  height: '34px',
+                  width: '80px'
+              }} 
+              src="nouns-dao.png"/>
+
+          <p className={styles.title}>Rep-Oracle</p>
         </header>
 
-        <main className={styles.body}>{children}</main>
+        <main className={styles.body}>
+            {children}
+        </main>
 
-        {/* <footer className={styles.footer}>
-          <div className={styles.bottomBox}> 
-            {bottomLeftBox}
-            <div className={styles.timeView}>{timeView}</div>   
-            {bottomRightBox}
-          </div>
-        </footer> */}
       </div>
     );  
 }
-
-// className={styles.timeView}
-
-
-
-
-
-// import { Inter } from 'next/font/google'
-
-// const inter = Inter({ subsets: ['latin'] })
-
-// export default function RootLayout({
-//   children,
-// }: {
-//   children: React.ReactNode
-// }) {
-//   return (
-//     <html lang="en">
-//       <body className={inter.className}>{children}</body>
-//     </html>
-//   )
-// }
 
