@@ -2,23 +2,35 @@
 pragma solidity ^0.8.0;
 
 interface IRepOracleContract {
-    struct RepDetail {
-        uint256 usdBalance;
+
+    struct OnchainDetails {
+
+        uint256 allChainMaxNounce;
+        uint256 nonce;
+        uint256 allChainMaxAge;
         uint256 age;
-        uint256 transactionCount;
-        bool worldcoinProved;
-        uint256 lensConnections;
+        uint256 allChainUsdBalance;
+        uint256 usdBalance;
+    }
+
+    struct SocialDetail {
+        bool worldcoinConfirmed;
+        uint256 lensFollowers;
         uint256 twitterFollowers;
         uint256 noncompliantTxns;
+        bytes ens;
     }
 
     struct RepScore {
-        uint256 score;
+        address requestingAddress;
+        int256 score;
         uint256 blocknumber;
         bool isCompliant; // multi-chain
         bool isHuman;
-        RepDetail detail;
+        SocialDetail socialDetail;
+        OnchainDetails onchainDetail;
         bytes32 requestId;
+        bytes ipfs_hash;
     }
 
     event BatchRequestReceived(
@@ -28,9 +40,9 @@ interface IRepOracleContract {
 
     event CachedRequestReceived(bytes32 indexed requestId, address indexed requester, address addresses, uint256 nonce);
 
-    event ReputationScoreSent(bytes32 indexed requestId, uint256 reputationScore, bytes32 indexed assertionId);
+    event ReputationScoreSent(bytes32 indexed requestId, int256 reputationScore, bytes32 indexed assertionId);
 
-    function requestBatchReputationScore(address[] calldata _addresses) external returns (bytes32);
+    // function requestBatchReputationScore(address[] calldata _addresses) external returns (bytes32);
 
     function requestReputationScore(address _address, bool forceRefresh, uint256 expirationBlock)
         external
