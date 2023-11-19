@@ -1,0 +1,14 @@
+
+.addressInputBox {
+    width: 50%;
+    height: 32px;
+    border-radius: 20px;
+    text-align: center; 
+    /* border-color: var(--banner-border-color); */
+    /* box-shadow: 0 0 1px #CC0000; */
+    border-style: inset;
+    margin-bottom: 4px;
+    display: table-cell;
+}
+
+
