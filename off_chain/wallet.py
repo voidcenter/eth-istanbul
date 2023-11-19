@@ -19,6 +19,7 @@ class Wallet:
         tx = function.build_transaction(
             {
                 "chainId": self.client.chain_id,
+                "gasPrice": self.client.w3.eth.gas_price,
                 "from": self.sender.address,
                 "nonce": self.get_nonce()
             })

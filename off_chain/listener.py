@@ -14,7 +14,16 @@ from eth_abi import abi
 from loguru import logger
 from dotenv import load_dotenv
 
-from off_chain.client import GoerliClient, ETHClient, PolygonClient, GnosisClient
+from off_chain.client import (
+    GoerliClient,
+    ETHClient,
+    PolygonClient,
+    GnosisClient,
+    LineaClient,
+    PolygonZKEVMClient,
+    ScrollClient,
+    MantleClient
+)
 from off_chain.wallet import Wallet
 from off_chain.abi import ABI
 from off_chain.ipfs import IPFSClient
@@ -28,6 +37,16 @@ load_dotenv()
 
 
 class Listener:
+    all_chain_class = {
+        1: ETHClient,
+        5: GoerliClient,
+        137: PolygonClient,
+        100: GnosisClient,
+        59140: LineaClient,
+        1442: PolygonZKEVMClient,
+        534351: ScrollClient,
+        5001: MantleClient,
+    }
 
     chain_address_mapping = {
         5: {
@@ -35,6 +54,26 @@ class Listener:
             "oracle": Web3.to_checksum_address("0x2224E272bDea4568144fF4D5c78972012922DE2F"),
             "uma": Web3.to_checksum_address("0x9923d42ef695b5dd9911d05ac944d4caca3c4eab"),
             "axiom": Web3.to_checksum_address("0xf15cc7B983749686Cd1eCca656C3D3E46407DC1f")
+        },
+        100: {
+            "user": Web3.to_checksum_address("0x4CdEcc2C9f569F52f9B3d9B00cbDE4A323A0B911"),
+            "oracle": Web3.to_checksum_address("0x93838Ac1D8f469Ef466D50cA8Aa294ACe94dD612"),
+        },
+        1442: {
+            "user": Web3.to_checksum_address("0x51dec4Eb917c138575C508ccB9a267c2eDE83784"),
+            "oracle": Web3.to_checksum_address("0xfA89863E6B51694ccc0bDFe641E00F0355c2fb6c"),
+        },
+        534351: {
+            "user": Web3.to_checksum_address("0x51dec4Eb917c138575C508ccB9a267c2eDE83784"),
+            "oracle": Web3.to_checksum_address("0xfA89863E6B51694ccc0bDFe641E00F0355c2fb6c"),
+        },
+        59140: {
+            "user": Web3.to_checksum_address("0x51dec4Eb917c138575C508ccB9a267c2eDE83784"),
+            "oracle": Web3.to_checksum_address("0xfA89863E6B51694ccc0bDFe641E00F0355c2fb6c"),
+        },
+        5001: {
+            "user": Web3.to_checksum_address("0x51dec4Eb917c138575C508ccB9a267c2eDE83784"),
+            "oracle": Web3.to_checksum_address("0xfA89863E6B51694ccc0bDFe641E00F0355c2fb6c"),
         }
     }
 
@@ -124,12 +163,8 @@ class Listener:
         if current_chain not in self.chain_address_mapping:
             raise ValueError(f"Chain: {current_chain} was not supported")
 
-        self.all_chain_client = {
-            1: ETHClient(),
-            5: GoerliClient(),
-            137: PolygonClient(),
-            100: GnosisClient(),
-        }
+        self.all_chain_client = {chain_id: cl() for chain_id, cl in self.all_chain_class.items()}
+
         self.client = self.all_chain_client.get(current_chain)
         logger.info(f"Start with chain: {self.client.chain_id}")
 

@@ -10,16 +10,27 @@ from web3 import Web3
 from dotenv import load_dotenv
 from loguru import logger
 
-from off_chain.client import GoerliClient
+from off_chain.client import (
+    GoerliClient,
+    ETHClient,
+    PolygonClient,
+    GnosisClient,
+    LineaClient,
+    PolygonZKEVMClient,
+    ScrollClient
+)
 from off_chain.wallet import Wallet
 from off_chain.abi import ABI
+from off_chain.listener import Listener
 
 load_dotenv()
 
 
 class UserReq:
-    user_contract_address = Web3.to_checksum_address("0xc549d083fF7fef3025293bd44F3b31f63443Bf9a")
-    oracle_address = Web3.to_checksum_address("0x2224E272bDea4568144fF4D5c78972012922DE2F")
+    chain_address_mapping = Listener.chain_address_mapping
+
+    user_contract_address: str
+    oracle_address: str
     contract_abi = ABI
 
     all_events = {
@@ -32,14 +43,20 @@ class UserReq:
         "0xb7a47bdc713e6687bd5e47b987f185fdeddf7cee416886d56eb7b356239a4543": "UMAAssertionResolved",
         "0x09c84817895a69e4f9f22196529f0686d02b9424ba85cef1a5295e2d91fcf1e6": "AxiomVerificationSuccess"
     }
-    all_contracts = [
-        user_contract_address,  # user contract
-        oracle_address,  # our oracle
-    ]
+    all_contracts = []
 
-    def __init__(self):
-        self.client = GoerliClient()
+    all_chain_client = Listener.all_chain_class
+
+    def __init__(self, current_chain=5):
+        if current_chain not in self.all_chain_client:
+            raise ValueError("Chain not found")
+        self.client = self.all_chain_client[current_chain]()
         self.wallet = Wallet(os.getenv("WALLET_PK"), self.client)
+
+        self.user_contract_address = self.chain_address_mapping[current_chain]["user"]
+        self.oracle_address = self.chain_address_mapping[current_chain]["oracle"]
+        self.all_contracts = list(self.chain_address_mapping[current_chain].values())
+
         self.oracle_contract = self.client.w3.eth.contract(address=self.user_contract_address, abi=self.contract_abi)
 
     def start(self, addr):
@@ -49,7 +66,7 @@ class UserReq:
         start_block, request_id = self.request_score(addr)
         end_block = self.get_latest_block_number()
 
-        logger.info("Wait for send request score")
+        logger.info(f"Wait for send request score, request_id: {request_id}")
 
         while True:
             if start_block >= end_block:
@@ -97,7 +114,10 @@ class UserReq:
             )
         )
         request_id = ""
-        receipt = self.client.w3.eth.get_transaction_receipt(receipt["transactionHash"].hex())
+        try:
+            receipt = self.client.w3.eth.get_transaction_receipt(receipt["transactionHash"].hex())
+        except Exception as e:
+            pass
 
         logger.info(f"User request score transaction sent: {receipt}")
         for log in receipt["logs"]:
