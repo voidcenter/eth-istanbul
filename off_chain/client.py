@@ -121,10 +121,69 @@ class GoerliClient(EVMClient):
         super().__init__(self.scan_endpoint, self.scan_key, self.endpoint)
 
 
+class PolygonZKEVMClient(EVMClient):
+    scan_endpoint = "https://api-testnet-zkevm.polygonscan.com/api"
+    scan_key = os.getenv('POLYGON_SCAN_KEY')
+    endpoint = "https://rpc.public.zkevm-test.net"
+
+    prices = {
+        "native": 2000,
+    }
+
+    decimals = {}
+
+    tokens = {}
+
+    def __init__(self):
+        super().__init__(self.scan_endpoint, self.scan_key, self.endpoint)
+
+
+class ScrollClient(EVMClient):
+    scan_endpoint = "https://sepolia.scrollscan.com/api"
+    scan_key = os.getenv('SCROLL_SCAN_KEY')
+    endpoint = "https://sepolia-rpc.scroll.io"
+
+    prices = {
+        "native": 2000,
+    }
+
+    decimals = {}
+
+    tokens = {}
+
+    def __init__(self):
+        super().__init__(self.scan_endpoint, self.scan_key, self.endpoint)
+
+
+class LineaClient(EVMClient):
+    scan_endpoint = "https://api-testnet.lineascan.build/api"
+    scan_key = os.getenv('Linea_SCAN_KEY')
+    endpoint = "https://rpc.goerli.linea.build"
+
+    prices = {
+        "native": 2000,
+        "usdt": 1,
+        "usdc": 1,
+    }
+
+    decimals = {
+        "usdt": 6,
+        "usdc": 6,
+    }
+
+    tokens = {
+        "usdt": "0xA219439258ca9da29E9Cc4cE5596924745e12B93",
+        "usdc": "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+    }
+
+    def __init__(self):
+        super().__init__(self.scan_endpoint, self.scan_key, self.endpoint)
+
+
 class GnosisClient(EVMClient):
     scan_endpoint = "https://api.gnosisscan.io/api"
     scan_key = os.getenv('GNOSIS_SCAN_KEY')
-    endpoint = "https://rpc.gnosis.gateway.fm"
+    endpoint = "https://rpc.gnosischain.com/"
 
     prices = {
         "native": 1,
@@ -174,9 +233,31 @@ class PolygonClient(EVMClient):
         super().__init__(self.scan_endpoint, self.scan_key, self.endpoint)
 
 
+class MantleClient(EVMClient):
+    scan_endpoint = ""
+    scan_key = ""
+    endpoint = "https://rpc.testnet.mantle.xyz/"
+
+    prices = {
+        "native": 0.5,
+    }
+
+    decimals = {}
+
+    tokens = {}
+
+    def __init__(self):
+        super().__init__(self.scan_endpoint, self.scan_key, self.endpoint)
+
+    def address_age(self, address: str) -> int:
+        return 0
+
+
 if __name__ == '__main__':
-    gc = PolygonClient()
-    print(gc.address_native_balance("0xFbCF4d80d3c267876F6795C02aAB10DE751Da8A4"))
-    print(gc.address_nonce("0xFbCF4d80d3c267876F6795C02aAB10DE751Da8A4"))
-    print(gc.address_age("0xFbCF4d80d3c267876F6795C02aAB10DE751Da8A4"))
-    # print(gc.usd_balance("0xF25b29d208efb66d1007e11d2457Df213F7B1e64"))
+    gc = MantleClient()
+    address = "0x33d89d254C0f9893A4C8d0978f4ab37455BF35e7"
+    print(gc.chain_id)
+    print(gc.address_native_balance(address))
+    print(gc.address_nonce(address))
+    print(gc.address_age(address))
+    print(gc.usd_balance(address))

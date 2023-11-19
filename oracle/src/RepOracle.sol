@@ -24,29 +24,41 @@ contract RepOracleContract is IRepOracleContract, Ownable {
 
     uint256 public requestNonce;
     IUMAOracleV3 oov3;
-    uint64 public constant assertionLiveness = 10;
+    uint64 public assertionLiveness = 10;
     bytes32 public immutable defaultIdentifier;
     IERC20 public immutable defaultCurrency;
-    address public immutable axiomV2Query;
+    address public axiomV2Query;
 
-    constructor(address umaOracle, address _axiomV2Query) Ownable(msg.sender) {
+    // toggles for UMA & axiom
+    bool public enable_uma;
+    bool public enable_axiom;
+
+    constructor(address umaOracle, address _axiomV2Query, bool _uma, bool _axiom) Ownable(msg.sender) {
         // Create an Optimistic Oracle V3 instance at the deployed address on Görli.
-        oov3 = IUMAOracleV3(umaOracle);
-        defaultIdentifier = oov3.defaultIdentifier();
-        defaultCurrency = IERC20(oov3.defaultCurrency());
+        toggleProviders(_uma, _axiom);
+
+        if (enable_axiom) {
+            axiomV2Query = _axiomV2Query;
+        }
+
+        if (enable_uma) {
+            oov3 = IUMAOracleV3(umaOracle);
+            defaultIdentifier = oov3.defaultIdentifier();
+            defaultCurrency = IERC20(oov3.defaultCurrency());
+        }
         requestNonce = 0;
+    }
+
+    function setAxiom(address _axiomV2Query) public onlyOwner {
         axiomV2Query = _axiomV2Query;
     }
 
-    // function requestBatchReputationScore(address[] calldata _addresses) external returns (bytes32) {
-    //     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, _addresses, block.timestamp, requestNonce));
-    //     call_back_address[requestId] = msg.sender;
-    //     emit BatchRequestReceived(requestId, msg.sender, _addresses, requestNonce);
-    //     requestNonce += 1;
-    //     return requestId;
-    // }
+    function toggleProviders(bool _uma, bool _axiom) public onlyOwner {
+        enable_uma = _uma;
+        enable_axiom = _axiom;
+    }
 
-    function setAssertionLiveness(uint64 _liveness) public onlyOwner() {
+    function setAssertionLiveness(uint64 _liveness) public onlyOwner {
         assertionLiveness = _liveness;
     }
 
@@ -82,28 +94,38 @@ contract RepOracleContract is IRepOracleContract, Ownable {
         address userContractAddress = call_back_address[score.requestId];
         require(userContractAddress != address(0), "Request ID not found");
 
-        uint256 bond = oov3.getMinimumBond(address(defaultCurrency));
-        defaultCurrency.transferFrom(msg.sender, address(this), bond);
-        defaultCurrency.approve(address(oov3), bond);
+        if (enable_uma){
+            uint256 bond = oov3.getMinimumBond(address(defaultCurrency));
+            defaultCurrency.transferFrom(msg.sender, address(this), bond);
+            defaultCurrency.approve(address(oov3), bond);
 
-        assertionId = oov3.assertTruth(
-            _evidence,
-            owner(), // asserter, recieve the bond back at resolution if correct
-            address(this),
-            address(0), // no sovereign security
-            assertionLiveness,
-            defaultCurrency,
-            bond,
-            defaultIdentifier,
-            bytes32(0) // No domain.
-        );
-        assertion_ids[assertionId] = score.requestId;
+            assertionId = oov3.assertTruth(
+                _evidence,
+                owner(), // asserter, recieve the bond back at resolution if correct
+                address(this),
+                address(0), // no sovereign security
+                assertionLiveness,
+                defaultCurrency,
+                bond,
+                defaultIdentifier,
+                bytes32(0) // No domain.
+            );
+            assertion_ids[assertionId] = score.requestId;
+        } else {
+            assertionId = bytes32(0);
+        }
+
 
         IRepOracleUser(userContractAddress).reputationCallback(score);
 
         evidence[score.requestId] = _evidence;
         repScore[score.requestingAddress] = score;
         emit ReputationScoreSent(score.requestId, score.score, assertionId);
+
+        if (!enable_uma) {
+            IRepOracleUser(userContractAddress).commit(score.requestId);
+            emit UMAAssertionResolved(assertionId, score.requestId, true);
+        }
     }
 
     event UMAAssertionResolved(bytes32 indexed assertionId, bytes32 indexed requestId, bool _status);
@@ -117,7 +139,7 @@ contract RepOracleContract is IRepOracleContract, Ownable {
 
         // If the assertion was true, then the data assertion is resolved.
         // require Axiom proof to also pass
-        bool axiomPassed = requestId_to_axiom_query_id[_requestId] != 0;
+        bool axiomPassed = !enable_axiom || (requestId_to_axiom_query_id[_requestId] != 0);
         if (assertedTruthfully && axiomPassed) {
             IRepOracleUser(userContractAddress).commit(_requestId);
 
